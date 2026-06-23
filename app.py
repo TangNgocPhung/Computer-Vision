@@ -51,6 +51,20 @@ html, body, [class*="css"], .stApp { font-family: 'Inter', sans-serif; }
 }
 .stButton>button:hover { background: var(--teal-d); color:#fff; }
 
+/* Radio dang the (pill) thay cho cham tron mac dinh */
+div[role="radiogroup"] { gap:0; }
+div[role="radiogroup"] > label {
+  background: rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.12);
+  border-radius:9px; padding:8px 13px; margin-bottom:6px; width:100%;
+  cursor:pointer; transition:.15s;
+}
+div[role="radiogroup"] > label:hover { border-color:#2e94a6; }
+div[role="radiogroup"] > label > div:first-child { display:none; }
+div[role="radiogroup"] > label:has(input:checked) {
+  background:#1f7a8c; border-color:#1f7a8c;
+}
+div[role="radiogroup"] > label:has(input:checked) p { color:#fff; font-weight:600; }
+
 [data-testid="stSidebar"] { background: #0f2e38; }
 [data-testid="stSidebar"] * { color:#dfeaed; }
 .sb-brand { font-size:16px; font-weight:700; color:#fff; line-height:1.3; }
@@ -167,6 +181,11 @@ with st.sidebar:
     st.markdown('<div class="sb-h">Cấu hình</div>', unsafe_allow_html=True)
     mode = st.radio("Chế độ xử lý", ["Tự động", "Vật thể", "Văn bản"])
     engine = st.radio("Bộ nhận dạng chữ (OCR)", ["EasyOCR", "Tesseract"])
+
+    st.markdown('<div class="sb-h">Giảng viên hướng dẫn</div>', unsafe_allow_html=True)
+    st.markdown('<div class="std"><div class="n">PGS.TS. Hoàng Văn Dũng</div>'
+                '<div style="font-size:11.5px;color:#9fc0c8;margin-top:1px;">'
+                'Khoa Công nghệ Thông tin</div></div>', unsafe_allow_html=True)
 
     st.markdown('<div class="sb-h">Học viên cao học</div>', unsafe_allow_html=True)
     students = [
