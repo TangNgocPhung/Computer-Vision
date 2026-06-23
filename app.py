@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-Ung dung ho tro nguoi khiem thi (Streamlit)
-Nhan dien vat the (YOLOv8) + OCR (Tesseract / EasyOCR) + giong noi tieng Viet (gTTS)
+He thong ho tro nguoi khiem thi
+Truong Dai hoc Su pham TP.HCM - Khoa Cong nghe thong tin
+YOLOv8 (phat hien vat the) + OCR (Tesseract/EasyOCR) + gTTS (giong noi tieng Viet)
 """
-import os
 import tempfile
 from collections import Counter
 
@@ -14,10 +14,60 @@ from ultralytics import YOLO
 from gtts import gTTS
 import pytesseract
 
-st.set_page_config(page_title="Ho tro nguoi khiem thi", page_icon="eye", layout="wide")
+st.set_page_config(page_title="Hỗ trợ người khiếm thị | HCMUE",
+                   page_icon="🦮", layout="wide")
 
-YOLO_WEIGHTS = "best.pt"   # dat file trong so cung thu muc voi app.py
+# ============================================================
+#  GIAO DIEN (CSS)
+# ============================================================
+st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
+html, body, [class*="css"], .stApp { font-family: 'Inter', sans-serif; }
+#MainMenu, header, footer { visibility: hidden; }
+.block-container { padding-top: 1.4rem; padding-bottom: 2rem; max-width: 1180px; }
+
+:root { --ink:#10323d; --teal:#1f7a8c; --teal-d:#155160; --line:#e4e9ec; --soft:#f5f8f9; }
+
+.hero {
+  background: linear-gradient(135deg, #155160 0%, #1f7a8c 100%);
+  border-radius: 16px; padding: 30px 34px; color: #fff; margin-bottom: 22px;
+}
+.hero .uni { font-size: 13px; letter-spacing:.12em; text-transform:uppercase; opacity:.9; }
+.hero .fac { font-size: 14px; opacity:.85; margin-top:2px; }
+.hero h1 { font-size: 30px; font-weight:700; margin: 12px 0 6px; line-height:1.2; }
+.hero .sub { font-size: 15px; opacity:.92; font-weight:400; }
+.hero .chips { margin-top:16px; display:flex; gap:10px; flex-wrap:wrap; }
+.hero .chip { background: rgba(255,255,255,.16); border:1px solid rgba(255,255,255,.25);
+  padding:5px 13px; border-radius:999px; font-size:13px; }
+
+.section { font-size:13px; font-weight:600; letter-spacing:.05em; text-transform:uppercase;
+  color: var(--teal-d); margin: 6px 0 10px; border-left:3px solid var(--teal); padding-left:9px; }
+
+.stButton>button {
+  background: var(--teal); color:#fff; border:none; border-radius:10px;
+  font-weight:600; padding:.55rem 1rem; width:100%; transition:.15s;
+}
+.stButton>button:hover { background: var(--teal-d); color:#fff; }
+
+[data-testid="stSidebar"] { background: #0f2e38; }
+[data-testid="stSidebar"] * { color:#dfeaed; }
+.sb-brand { font-size:16px; font-weight:700; color:#fff; line-height:1.3; }
+.sb-sub { font-size:12.5px; color:#9fc0c8; margin-top:2px; }
+.sb-h { font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:#7fa9b3;
+  margin:18px 0 8px; }
+.std { background: rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.10);
+  border-radius:10px; padding:10px 12px; margin-bottom:8px; }
+.std .n { font-size:14px; font-weight:600; color:#fff; }
+.std .c { font-size:12px; color:#9fc0c8; font-family:monospace; }
+
+.foot { text-align:center; color:#7c949c; font-size:12.5px; margin-top:26px;
+  padding-top:14px; border-top:1px solid var(--line); }
+</style>
+""", unsafe_allow_html=True)
+
+YOLO_WEIGHTS = "best.pt"
 VN_NAMES = {
     "aeroplane": "máy bay", "bicycle": "xe đạp", "bird": "con chim",
     "boat": "con thuyền", "bottle": "cái chai", "bus": "xe buýt",
@@ -28,7 +78,9 @@ VN_NAMES = {
     "tvmonitor": "màn hình ti vi",
 }
 
-# ---------------- Nap model (cache, chi nap 1 lan) ----------------
+# ============================================================
+#  MODEL & PIPELINE
+# ============================================================
 @st.cache_resource(show_spinner="Đang nạp mô hình phát hiện vật thể...")
 def load_yolo():
     return YOLO(YOLO_WEIGHTS)
@@ -38,7 +90,6 @@ def load_easyocr():
     import easyocr
     return easyocr.Reader(["vi"], gpu=False)
 
-# ---------------- Tien xu ly anh ----------------
 _clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
 
 def apply_clahe(img_bgr):
@@ -78,10 +129,8 @@ def perspective_correction(img_bgr):
     if mw < 10 or mh < 10:
         return img_bgr
     dst = np.array([[0, 0], [mw - 1, 0], [mw - 1, mh - 1], [0, mh - 1]], dtype="float32")
-    M = cv2.getPerspectiveTransform(rect, dst)
-    return cv2.warpPerspective(img_bgr, M, (mw, mh))
+    return cv2.warpPerspective(img_bgr, cv2.getPerspectiveTransform(rect, dst), (mw, mh))
 
-# ---------------- Phat hien vat the ----------------
 def detect_objects(img_bgr, conf=0.35):
     model = load_yolo()
     res = model.predict(img_bgr, conf=conf, verbose=False)[0]
@@ -94,7 +143,6 @@ def detect_objects(img_bgr, conf=0.35):
         desc = "Không phát hiện được vật thể nào."
     return cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB), desc
 
-# ---------------- OCR ----------------
 def extract_text(img_bgr, engine="easyocr"):
     if engine == "tesseract":
         rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
@@ -103,27 +151,65 @@ def extract_text(img_bgr, engine="easyocr"):
     lines = reader.readtext(img_bgr, detail=0, paragraph=True)
     return "\n".join(lines).strip()
 
-# ---------------- Text-to-Speech ----------------
 def text_to_speech(text):
     text = (text or "").strip() or "Không có nội dung để đọc."
     tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
     gTTS(text=text, lang="vi", slow=False).save(tmp.name)
     return tmp.name
 
-# ---------------- Giao dien ----------------
-st.title("👁️ Hệ thống hỗ trợ người khiếm thị")
-st.caption("Nhận diện vật thể + Đọc văn bản (OCR) + Giọng nói tiếng Việt")
+# ============================================================
+#  SIDEBAR (thuong hieu + hoc vien + cau hinh)
+# ============================================================
+with st.sidebar:
+    st.markdown('<div class="sb-brand">Hệ thống hỗ trợ<br>người khiếm thị</div>'
+                '<div class="sb-sub">Computer Vision Application</div>', unsafe_allow_html=True)
 
-c1, c2 = st.columns(2)
-with c1:
-    up = st.file_uploader("Ảnh đầu vào", type=["jpg", "jpeg", "png"])
-    mode = st.radio("Chế độ xử lý", ["Tự động", "Vật thể", "Văn bản"], horizontal=True)
-    engine = st.radio("Bộ nhận dạng chữ (OCR)", ["EasyOCR", "Tesseract"], horizontal=True)
-    go = st.button("Xử lý", type="primary", use_container_width=True)
+    st.markdown('<div class="sb-h">Cấu hình</div>', unsafe_allow_html=True)
+    mode = st.radio("Chế độ xử lý", ["Tự động", "Vật thể", "Văn bản"])
+    engine = st.radio("Bộ nhận dạng chữ (OCR)", ["EasyOCR", "Tesseract"])
+
+    st.markdown('<div class="sb-h">Học viên cao học</div>', unsafe_allow_html=True)
+    students = [
+        ("Tăng Ngọc Phụng", "KHMT836027"),
+        ("Hoàng Châu Ngọc Phương", "KHMT836028"),
+        ("Lê Thị Mai Len", "KHMT836015"),
+    ]
+    for name, code in students:
+        st.markdown(f'<div class="std"><div class="n">{name}</div>'
+                    f'<div class="c">{code}</div></div>', unsafe_allow_html=True)
+
+# ============================================================
+#  HERO
+# ============================================================
+st.markdown("""
+<div class="hero">
+  <div class="uni">Trường Đại học Sư phạm Thành phố Hồ Chí Minh</div>
+  <div class="fac">Khoa Công nghệ Thông tin</div>
+  <h1>Hệ thống hỗ trợ người khiếm thị</h1>
+  <div class="sub">Nhận diện vật thể, đọc văn bản và chuyển thành giọng nói tiếng Việt từ một bức ảnh.</div>
+  <div class="chips">
+    <span class="chip">Phát hiện vật thể · YOLOv8</span>
+    <span class="chip">Nhận dạng chữ · OCR</span>
+    <span class="chip">Giọng nói · gTTS</span>
+  </div>
+</div>
+""", unsafe_allow_html=True)
+
+# ============================================================
+#  NOI DUNG
+# ============================================================
+left, right = st.columns([1, 1.15], gap="large")
+
+with left:
+    st.markdown('<div class="section">Ảnh đầu vào</div>', unsafe_allow_html=True)
+    up = st.file_uploader("Chọn ảnh (JPG/PNG)", type=["jpg", "jpeg", "png"],
+                          label_visibility="collapsed")
     if up is not None:
-        st.image(up, caption="Ảnh gốc", use_container_width=True)
+        st.image(up, use_container_width=True)
+    go = st.button("Bắt đầu xử lý")
 
-with c2:
+with right:
+    st.markdown('<div class="section">Kết quả</div>', unsafe_allow_html=True)
     if go and up is not None:
         data = np.frombuffer(up.getvalue(), np.uint8)
         img_bgr = cv2.imdecode(data, cv2.IMREAD_COLOR)
@@ -132,19 +218,28 @@ with c2:
         if mode in ("Tự động", "Vật thể"):
             annotated, desc = detect_objects(apply_clahe(img_bgr))
             spoken.append(desc)
-            st.image(annotated, caption="Kết quả phát hiện", use_container_width=True)
+            st.image(annotated, caption="Vật thể nhận diện được", use_container_width=True)
         if mode in ("Tự động", "Văn bản"):
             eng = "tesseract" if engine == "Tesseract" else "easyocr"
             text_out = extract_text(apply_clahe(perspective_correction(img_bgr)), eng)
             if text_out:
                 spoken.append("Nội dung văn bản: " + text_out)
 
-        st.text_area("Văn bản trích xuất", text_out or "(Không có văn bản)", height=120)
-        mp3 = text_to_speech(" ".join(spoken))
+        full_text = " ".join(spoken)
+        st.text_area("Nội dung", full_text or "(Không có nội dung)", height=120)
+
+        mp3 = text_to_speech(full_text)
         st.audio(mp3, autoplay=True)
 
-        st.download_button("Tải văn bản (.txt)", text_out, "ket_qua.txt")
+        d1, d2 = st.columns(2)
+        d1.download_button("Tải văn bản (.txt)", full_text or "", "ket_qua.txt",
+                           use_container_width=True)
         with open(mp3, "rb") as f:
-            st.download_button("Tải giọng nói (.mp3)", f, "ket_qua.mp3")
-    elif go:
-        st.warning("Hãy tải lên một ảnh trước.")
+            d2.download_button("Tải giọng nói (.mp3)", f, "ket_qua.mp3",
+                               use_container_width=True)
+    else:
+        st.info("Tải một bức ảnh ở bên trái rồi bấm **Bắt đầu xử lý**.")
+
+st.markdown('<div class="foot">© 2026 · Đồ án môn Thị giác máy tính và Ứng dụng · '
+            'Khoa Công nghệ Thông tin, Trường ĐH Sư phạm TP.HCM</div>',
+            unsafe_allow_html=True)
